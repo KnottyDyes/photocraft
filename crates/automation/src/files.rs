@@ -89,3 +89,17 @@ pub fn render_png(doc: &Document, max_side: u32) -> Result<Vec<u8>, AutomationEr
         .map_err(|e| AutomationError::Other(e.to_string()))?;
     photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &Default::default()).map_err(|e| AutomationError::Other(e.to_string()))
 }
+
+/// Flattened canvas region as PNG, scaled to fit `max_side` (0 = full region).
+pub fn render_png_region(doc: &Document, region: crate::PreviewRect, max_side: u32) -> Result<Vec<u8>, AutomationError> {
+    let rect = region.validate(doc.size)?;
+    let longest = region.width.max(region.height);
+    let side = if max_side == 0 { longest } else { max_side };
+    let scale = (side as f32 / longest as f32).min(1.0);
+    let width = ((region.width as f32 * scale).round() as u32).max(1);
+    let height = ((region.height as f32 * scale).round() as u32).max(1);
+    let img = photocraft_compose::render_reduced_rect(doc, rect, width, height).to_rgba8();
+    let image = photocraft_codecs::Image::from_u8(img.width, img.height, photocraft_codecs::ChannelLayout::Rgba, img.pixels)
+        .map_err(|e| AutomationError::Other(e.to_string()))?;
+    photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &Default::default()).map_err(|e| AutomationError::Other(e.to_string()))
+}

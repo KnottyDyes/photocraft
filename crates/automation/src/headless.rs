@@ -198,6 +198,21 @@ impl Headless {
         photocraft_engine::inspect::session(&self.session)
     }
 
+    /// Render only a validated document-pixel region, retaining preview budgets.
+    pub fn render_png_region(&self, index: Option<usize>, region: crate::PreviewRect, max_side: u32) -> Result<Vec<u8>, AutomationError> {
+        let i = self.doc_index(index)?;
+        let doc = &self.session.documents()[i].doc;
+        region.validate(doc.size)?;
+        if !matches!(&self.filesystem, Filesystem::TrustedLocal) {
+            crate::budgets::check_preview(region.width, region.height, max_side)?;
+        }
+        let png = files::render_png_region(doc, region, max_side)?;
+        if !matches!(&self.filesystem, Filesystem::TrustedLocal) {
+            crate::budgets::check_png(png.len())?;
+        }
+        Ok(png)
+    }
+
     pub fn select(&mut self, index: usize) -> Result<Value, AutomationError> {
         if self.session.set_active(index) { Ok(self.session_list()) } else { Err(AutomationError::BadRequest(format!("no document at index {index}"))) }
     }

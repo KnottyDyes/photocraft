@@ -20,6 +20,7 @@ pub mod bridge;
 pub mod budgets;
 pub mod files;
 pub mod headless;
+pub mod preview;
 pub mod rpc;
 pub mod security;
 pub mod server;
@@ -27,6 +28,7 @@ pub mod workspace;
 
 pub use bridge::BridgeClient;
 pub use headless::Headless;
+pub use preview::PreviewRect;
 pub use server::{Backend, PhotocraftMcp};
 pub use workspace::AuthorizedWorkspace;
 
