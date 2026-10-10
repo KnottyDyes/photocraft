@@ -105,6 +105,9 @@ pub struct PreviewParams {
     /// Zero requests full size within that ceiling. Bridge mode returns the window screenshot.
     #[serde(default)]
     pub max_side: Option<u32>,
+    /// Headless only: nonempty, in-canvas region in integer document pixels.
+    #[serde(default)]
+    pub rect: Option<crate::PreviewRect>,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -577,7 +580,13 @@ impl PhotocraftMcp {
     #[tool(description = "Render the flattened document and return it as a PNG image (bridge mode: window screenshot).")]
     async fn doc_render_preview(&self, Parameters(p): Parameters<PreviewParams>) -> Result<CallToolResult, McpError> {
         let max = p.max_side.unwrap_or(1024);
-        if let Some(r) = self.headless_op(move |h| h.render_png(p.index, max)).await {
+        if let Some(r) = self
+            .headless_op(move |h| match p.rect {
+                Some(rect) => h.render_png_region(p.index, rect, max),
+                None => h.render_png(p.index, max),
+            })
+            .await
+        {
             return Ok(match r {
                 Ok(png) => png_result(&png, format!("flattened preview (max side {max})")),
                 Err(e) => fail(e),
@@ -588,6 +597,9 @@ impl PhotocraftMcp {
         };
         if p.index.is_some() {
             return Ok(fail("`index` is only supported in headless mode; bridge previews capture the app window"));
+        }
+        if p.rect.is_some() {
+            return Ok(fail("`rect` is only supported in headless mode; bridge previews capture the app window"));
         }
         self.screenshot(b, Some(max)).await
     }

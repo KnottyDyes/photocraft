@@ -12,6 +12,9 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 const CONTROL_TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
+#[path = "mcp/regions.rs"]
+mod regions;
+
 #[derive(Clone, Default)]
 struct Client;
 impl ClientHandler for Client {

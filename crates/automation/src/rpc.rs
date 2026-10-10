@@ -9,7 +9,7 @@
 //! - `jobs.list` / `jobs.cancel {job?}`: background jobs (#210)
 //! - `session.list`, `doc.open {path}`, `doc.new {…file.new params}`,
 //!   `doc.save {path?, format?, quality?, index?}`, `doc.inspect {index?}`,
-//!   `doc.render {index?, maxSide?, path?}` (writes a PNG to `path`, else
+//!   `doc.render {index?, maxSide?, rect?, path?}` (writes a PNG to `path`, else
 //!   returns it base64-encoded), `doc.select {index}`, `doc.close {index?}`
 //! - `batch {steps: [{command, params?, wait?} | {method, params?}], stopOnError?}`
 //! - `methods`: this list.
@@ -115,7 +115,13 @@ impl Headless {
                         value.as_u64().and_then(|value| u32::try_from(value).ok()).ok_or_else(|| bad("maxSide must be an unsigned 32-bit integer"))?
                     }
                 };
-                let png = self.render_png(index_of(&p), max)?;
+                let png = match p.get("rect") {
+                    None | Some(Value::Null) => self.render_png(index_of(&p), max)?,
+                    Some(value) => {
+                        let rect = serde_json::from_value(value.clone()).map_err(|error| bad(format!("invalid rect: {error}")))?;
+                        self.render_png_region(index_of(&p), rect, max)?
+                    }
+                };
                 match str_of(&p, "path") {
                     Some(path) => {
                         self.write_render(&PathBuf::from(path), &png)?;
