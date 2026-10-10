@@ -261,7 +261,14 @@ How each MCP tool maps onto control methods in bridge mode:
 | `ui_set {fields}` | `ui.set` |
 | `control_call {method, params}` | any method, passed through unchanged |
 
-Bridge previews capture the app window; passing `index` is an error. Headless `doc_render_preview` supports `index` without changing the active document.
+Bridge previews capture the app window; passing `index` or `rect` is an error before screenshot
+capture. Headless `doc_render_preview` (and its `render_preview` alias) supports `index` without
+changing the active document, and an optional `rect: {x, y, width, height}` in integer document
+pixels. Origins must be nonnegative, sizes nonzero, endpoints within the signed 32-bit coordinate
+range, and the entire region inside the canvas. Unknown or malformed rect fields are errors.
+The region's final composite is rendered directly, then reduced with aspect-preserving rounded
+dimensions and no upscaling; `max_side: 0` returns the full region. Omitting `rect` (or passing
+null) preserves the existing whole-document preview behavior.
 
 `doc_select` and `doc_close` work only in headless mode. The `ui_*` tools and `control_call` work only in bridge mode; in headless mode they return a tool error that explains how to start bridge mode.
 
@@ -307,7 +314,7 @@ no MCP framing, no app start-up per command. Configure its file access with the 
 | `doc.open` / `doc.new` | `{path}` / `file.new` params |
 | `doc.save` | `{path?, format?, quality?, index?, tiffLayers?}` (`.pcraft` native, else export by extension; set `tiffLayers: true` to preserve TIFF layers rather than exporting a flattened TIFF). Without `path` only a PSD, PSB or `.pcraft` document is written back to its own file, in its own format; anything else is an error and the file is left unchanged. A successful layered save (PSD, PSB or `.pcraft`) records the current revision as saved and makes the file the document's path, so `session.list` reports `dirty: false`; a flat export is a copy and leaves the document dirty |
 | `doc.inspect` | `{index?}`: same JSON as `document.inspect` |
-| `doc.render` | `{index?, maxSide? (1024; 0 = full), path?}`: PNG to `path`, else `{mime, base64}` |
+| `doc.render` | `{index?, maxSide? (1024; 0 = full), rect? {x,y,width,height}, path?}`: PNG to `path`, else `{mime, base64}`; the same headless region rules as MCP |
 | `doc.select` / `doc.close` | `{index}` / `{index?}` |
 | `batch` | `{steps: [{command, params?, wait?} \| {method, params?}], stopOnError? (true)}` → `{completed, failed, results}` (a step with `wait: false` starts a long command as a background job, like `engine.execute`) |
 | `methods` | the list above |
@@ -353,6 +360,11 @@ edge of 2048 pixels and a source document of at most 67,108,864 pixels. `maxSide
 PNG results are capped at 5 MiB before base64 encoding or writing a rendered file. Preview
 dimension/source checks run before compositing; the encoded-PNG check runs after encoding.
 Explicit trusted-local CLI rendering keeps its existing behavior.
+
+With `rect`, the same source-pixel and edge ceilings apply to the region's width and height,
+not the whole canvas, and the same PNG byte ceiling still applies. A small region can therefore
+preview a larger sparse canvas. This bounds the requested final composite, not all compositor
+scratch work: layer-effect intermediates may still cover broader areas.
 
 Batch replies have an aggregate byte budget with space reserved for the outer reply and ID.
 Exhausting it stops later steps even when `stopOnError` is false. A result can exceed the reply
